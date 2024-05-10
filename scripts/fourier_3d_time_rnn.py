@@ -163,6 +163,7 @@ scheduler_gamma = 0.5
 
 print(epochs, learning_rate, scheduler_step, scheduler_gamma)
 
+# IMPORTANT: THIS WHOLE SCRIPT IS JUST THE RNN BULLSHIT!!
 path = 'ns_fourier_3d_rnn_V10000_T20_N'+str(ntrain)+'_ep' + str(epochs) + '_m' + str(modes) + '_w' + str(width)
 path_model = 'model/'+path
 path_train_err = 'results/'+path+'train.txt'
@@ -196,8 +197,6 @@ test_u = reader.read_field('u')[-ntest:,::sub,::sub,T_in:T+T_in]
 print(train_u.shape, test_u.shape)
 assert (S == train_u.shape[-2])
 assert (T == train_u.shape[-1])
-
-
 
 train_a = train_a.reshape(ntrain,S,S,step,1)
 test_a = test_a.reshape(ntest,S,S,step,1)
