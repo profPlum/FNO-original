@@ -1,6 +1,9 @@
 import torch
+import os
 
 import math
+import numpy as np
+import scipy.io
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -10,8 +13,6 @@ import matplotlib
 from random_fields import GaussianRF
 
 from timeit import default_timer
-
-import scipy.io
 
 #w0: initial vorticity
 #f: forcing term
@@ -126,11 +127,11 @@ def navier_stokes_2d(w0, f, visc, T, delta_t=1e-4, record_steps=1):
 device = torch.device('cuda')
 
 #Resolution
-s = 256
+s = int(os.environ.get('RESOLUTION', default='256'))
 sub = 1
 
 #Number of solutions to generate
-N = 20
+N = int(os.environ.get('N_SIMS', default='20'))
 
 #Set up 2d GRF with covariance parameters
 GRF = GaussianRF(2, s, alpha=2.5, tau=7, device=device)
@@ -143,7 +144,7 @@ X,Y = torch.meshgrid(t, t)
 f = 0.1*(torch.sin(2*math.pi*(X + Y)) + torch.cos(2*math.pi*(X + Y)))
 
 #Number of snapshots from solution
-record_steps = 200
+record_steps = int(os.environ.get('TIME_RESOLUTION', default='200'))
 
 #Inputs
 a = torch.zeros(N, s, s)
@@ -153,7 +154,8 @@ u = torch.zeros(N, s, s, record_steps)
 #Solve equations in batches (order of magnitude speed-up)
 
 #Batch size
-bsize = 20
+bsize=int(os.environ.get('BATCH_SIZE', default='20'))
+viscosity=float(os.environ.get('VISCOSITY', default='1e-4'))
 
 c = 0
 t0 =default_timer()
@@ -163,13 +165,25 @@ for j in range(N//bsize):
     w0 = GRF.sample(bsize)
 
     #Solve NS
-    sol, sol_t = navier_stokes_2d(w0, f, 1e-3, 50.0, 1e-4, record_steps)
+    sol, sol_t = navier_stokes_2d(w0, f, viscosity, 50.0, delta_t=viscosity*(s/128), record_steps=record_steps)
+    # NOTE: smaller viscosity requires smaller timesteps to resolve complex dynamics
 
     a[c:(c+bsize),...] = w0
     u[c:(c+bsize),...] = sol
+
+    # manage memory manually
+    del sol, w0
+    import gc
+    while gc.collect(): pass
 
     c += bsize
     t1 = default_timer()
     print(j, c, t1-t0)
 
-scipy.io.savemat('ns_data.mat', mdict={'a': a.cpu().numpy(), 'u': u.cpu().numpy(), 't': sol_t.cpu().numpy()})
+data_dict = {'a': a.cpu().numpy(), 'u': u.cpu().numpy(), 't': sol_t.cpu().numpy()}
+
+import os # this method is more reliabe at scale
+os.system('mkdir ns_data_npy 2>/dev/null')
+np.save('ns_data_npy/ns_data_a.npy', data_dict['a'])
+np.save('ns_data_npy/ns_data_u.npy', data_dict['u'])
+np.save('ns_data_npy/ns_data_t.npy', data_dict['t'])
