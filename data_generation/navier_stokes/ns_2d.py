@@ -165,7 +165,7 @@ for j in range(N//bsize):
     w0 = GRF.sample(bsize)
 
     #Solve NS
-    sol, sol_t = navier_stokes_2d(w0, f, viscosity, 50.0, delta_t=viscosity*(s/128), record_steps=record_steps)
+    sol, sol_t = navier_stokes_2d(w0, f, viscosity, 50.0, delta_t=0.01*viscosity**0.5*(128/s), record_steps=record_steps)
     # NOTE: smaller viscosity requires smaller timesteps to resolve complex dynamics
 
     a[c:(c+bsize),...] = w0
