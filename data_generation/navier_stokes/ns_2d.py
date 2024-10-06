@@ -156,6 +156,10 @@ u = torch.zeros(N, s, s, record_steps)
 #Batch size
 bsize=int(os.environ.get('BATCH_SIZE', default='20'))
 viscosity=float(os.environ.get('VISCOSITY', default='1e-4'))
+delta_t=float(os.environ.get('DELTA_T', default='1e-4'))
+
+# GPT4 recommended rule (too slow)
+#delta_t=0.01*viscosity**0.5*(128/s)
 
 c = 0
 t0 =default_timer()
@@ -165,7 +169,7 @@ for j in range(N//bsize):
     w0 = GRF.sample(bsize)
 
     #Solve NS
-    sol, sol_t = navier_stokes_2d(w0, f, viscosity, 50.0, delta_t=0.01*viscosity**0.5*(128/s), record_steps=record_steps)
+    sol, sol_t = navier_stokes_2d(w0, f, viscosity, 50.0, delta_t=delta_t, record_steps=record_steps)
     # NOTE: smaller viscosity requires smaller timesteps to resolve complex dynamics
 
     a[c:(c+bsize),...] = w0
@@ -182,8 +186,14 @@ for j in range(N//bsize):
 
 data_dict = {'a': a.cpu().numpy(), 'u': u.cpu().numpy(), 't': sol_t.cpu().numpy()}
 
-import os # this method is more reliabe at scale
-os.system('mkdir ns_data_npy 2>/dev/null')
-np.save('ns_data_npy/ns_data_a.npy', data_dict['a'])
-np.save('ns_data_npy/ns_data_u.npy', data_dict['u'])
-np.save('ns_data_npy/ns_data_t.npy', data_dict['t'])
+import os, random
+
+# follow existing naming convention (e.g. ns_256x256x200_100_v1e-5_train_data) *internally now* (allows for parallelism)
+exp_name = f'ns_{s}x{s}x{record_steps}_{N}_v{viscosity:.2e}_train_data.{random.randint(0,int(1e6))}'
+os.mkdir(exp_name) # we want it to throw an error if it exists! (randomness is included)
+np.save(f'{exp_name}/ns_data_a.npy', data_dict['a'])
+np.save(f'{exp_name}/ns_data_u.npy', data_dict['u'])
+np.save(f'{exp_name}/ns_data_t.npy', data_dict['t'])
+# npy method is more reliabe at scale
+
+print(f'done making: {exp_name}')
