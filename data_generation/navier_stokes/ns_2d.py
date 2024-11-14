@@ -157,13 +157,19 @@ u = torch.zeros(N, s, s, record_steps)
 bsize=int(os.environ.get('BATCH_SIZE', default='20'))
 viscosity=float(os.environ.get('VISCOSITY', default='1e-4'))
 delta_t=float(os.environ.get('DELTA_T', default='1e-4'))
+bsize=min(bsize, N) # batch cannot be bigger than the number of simulations
+
+while N % bsize > 0: bsize+=1
+print('adjusted batch size: ', bsize, flush=True)
 
 # GPT4 recommended rule (too slow)
 #delta_t=0.01*viscosity**0.5*(128/s)
 
 c = 0
 t0 =default_timer()
-for j in range(N//bsize):
+
+from tqdm import tqdm
+for j in tqdm(range(N//bsize)):
 
     #Sample random feilds
     w0 = GRF.sample(bsize)
@@ -189,7 +195,7 @@ data_dict = {'a': a.cpu().numpy(), 'u': u.cpu().numpy(), 't': sol_t.cpu().numpy(
 import os, random
 
 # follow existing naming convention (e.g. ns_256x256x200_100_v1e-5_train_data) *internally now* (allows for parallelism)
-exp_name = f'ns_{s}x{s}x{record_steps}_{N}_v{viscosity:.2e}_train_data.{random.randint(0,int(1e6))}'
+exp_name = f'ns_{s}x{s}x{record_steps}_{N}_v{viscosity:.1e}_dt{delta_t:.1e}_data.{random.randint(0,int(1e6))}'
 os.mkdir(exp_name) # we want it to throw an error if it exists! (randomness is included)
 np.save(f'{exp_name}/ns_data_a.npy', data_dict['a'])
 np.save(f'{exp_name}/ns_data_u.npy', data_dict['u'])
